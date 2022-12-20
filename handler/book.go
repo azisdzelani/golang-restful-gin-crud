@@ -4,49 +4,81 @@ import (
 	"fmt"
 	"golang-restful-gin-crud/book"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
 
-func RootHandler(ctx *gin.Context) {
+type bookHandler struct {
+	bookService book.Service
+}
+
+func NewBookHandler(bookService book.Service) *bookHandler {
+	return &bookHandler{bookService}
+}
+
+func (h *bookHandler) GetBooksHandler(ctx *gin.Context) {
+	books, err := h.bookService.FindAll()
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"errors": err,
+		})
+	}
+
+	var booksResponse []book.BookResponse
+
+	for _, b := range books {
+		bookResponse := book.BookResponse{
+			ID:          b.ID,
+			Title:       b.Title,
+			Description: b.Description,
+			Price:       b.Price,
+			Rating:      b.Rating,
+			Discount:    b.Discount,
+		}
+
+		booksResponse = append(booksResponse, bookResponse)
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
-		"name": "Eko Kurniawan",
-		"bio":  "software developer",
+		"data": booksResponse,
 	})
 }
 
-func HelloHandler(ctx *gin.Context) {
+func (h *bookHandler) GetBookByID(ctx *gin.Context) {
+	idString := ctx.Param("id")
+	id, _ := strconv.Atoi(idString)
+
+	bookData, err := h.bookService.FindByID(id)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"errors": err,
+		})
+	}
+
+	bookResponse := book.BookResponse{
+		ID:          bookData.ID,
+		Title:       bookData.Title,
+		Description: bookData.Description,
+		Price:       bookData.Price,
+		Rating:      bookData.Rating,
+		Discount:    bookData.Discount,
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
-		"content":  "Hello Eko Kurniawan",
-		"subtitle": "Belajar Golang Web API",
+		"data": bookResponse,
 	})
 }
 
-func BooksHandler(ctx *gin.Context) {
-	id := ctx.Param("id")
-	title := ctx.Param("title")
+func (h *bookHandler) UpdateBooksHandler(ctx *gin.Context) {
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"id":    id,
-		"title": title,
-	})
 }
 
-func QueryHandler(ctx *gin.Context) {
-	title := ctx.Query("title")
-	price := ctx.Query("price")
+func (h *bookHandler) CreateBookHandler(ctx *gin.Context) {
+	var booksRequest book.BooksRequest
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"title": title,
-		"price": price,
-	})
-}
-
-func PostBooksHandler(ctx *gin.Context) {
-	var booksInput book.BooksRequest
-
-	err := ctx.ShouldBindJSON(&booksInput)
+	err := ctx.ShouldBindJSON(&booksRequest)
 
 	if err != nil {
 
@@ -62,8 +94,14 @@ func PostBooksHandler(ctx *gin.Context) {
 		return
 	}
 
+	book, err := h.bookService.Create(booksRequest)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"errors": err,
+		})
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
-		"title": booksInput.Title,
-		"price": booksInput.Price,
+		"data": book,
 	})
 }
